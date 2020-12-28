@@ -15,9 +15,10 @@ bool stripChanged = false;
 
 // Fade Variables
 uint8_t maxBrightness;
-uint8_t currBrightness;
+//uint8_t currBrightness;
 bool isFade = false;
-bool isBlack = false;
+//bool isBlack = false;
+uint8_t fadeCount = 1;
 
 // Pulse Variables
 bool isPulse = false;
@@ -95,8 +96,7 @@ void handleColorChange() {
 //    Serial.print(" B: ");
 //    Serial.println(b);
     currColor = CRGB(r, g, b);
-    currBrightness = Wire.read() * 2.55; // the max brightness out of alexa is 100
-    maxBrightness = currBrightness;
+    maxBrightness = Wire.read() * 2.55; // the max brightness out of alexa is 100
     
 //    Serial.print("Brightness: ");
 //    Serial.println(bright);
@@ -122,24 +122,12 @@ void changeColorSolid(CRGB color) {
 
 // ------------- Fade Functions -------------
 void fadeColor() {
-  if (isBlack) {
-    fade(maxBrightness, 1);
-  } else {
-    fade(0, -1);
+  EVERY_N_MILLISECONDS(50) {
+    FastLED.setBrightness(FastLED.quadwave8(fadeCount));
+    fadeCount++;
   }
 }
 
-void fade(uint8_t target, int8_t amt) {
-// For now, amt needs to be either 1 or -1 or the comparison will eventually break, looking for a workaround
-// Either the ability to pass in <= & >= or condense any number down to either 1 or -1
-  EVERY_N_MILLISECONDS(50) {
-    FastLED.setBrightness(currBrightness);
-    currBrightness += amt;
-  }
-  if (currBrightness == target) {
-    isBlack = !isBlack;
-  }
-}
 
 void fadeOn() {
   pulseOff();
