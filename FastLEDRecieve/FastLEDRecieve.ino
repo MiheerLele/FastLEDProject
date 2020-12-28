@@ -38,6 +38,7 @@ void setup() {
   Wire.onReceive(receiveEvent); // register event
   delay(2000);
   FastLED.addLeds<LED_TYPE, LED_PIN, ORDER>(led, NUM_LEDS).setCorrection(TypicalLEDStrip);
+  FastLED.setMaxPowerInVoltsAndMilliamps(12, 2750); // Limit power draw to 36 W, my power supply is rated for 60
   Serial.println("Setup Complete");
 }
 
@@ -50,23 +51,16 @@ void loop() {
 }
 
 void receiveEvent(int howMany) {
-//  Serial.print("Recieved: ");
-//  Serial.println(howMany);
-
-//  Serial.print("Case: ");
-//  Serial.println(tmp);
   switch(Wire.read()) { // Read event byte
       case 0:
         handleColorChange();
         break; // Color Change
       case 1:
-//        Serial.print("Fade Change Recieved from Nano 33\n");
         isFade = Wire.read(); // 0 for false, >0 for true
         if (isFade) { fadeOn(); }
         else { fadeOff(); }
         break; // Fade Change;
       case 2:
-//        Serial.print("Pulse Change Recieved from Nano 33\n");
         isPulse = Wire.read();// 0 for false, >0 for true
         if (isPulse) { pulseOn(); }
         else { pulseOff(); }
@@ -82,22 +76,12 @@ void receiveEvent(int howMany) {
 
 // ------------- Color Functions -------------
 void handleColorChange() {
-//  Serial.print("Color Change Recieved from Nano 33\n");
   if (Wire.read()) { // If light on
     uint8_t r = Wire.read();
     uint8_t g = Wire.read();
     uint8_t b = Wire.read();
-//    Serial.print("R: ");
-//    Serial.print(r);
-//    Serial.print(" G: ");
-//    Serial.print(g);
-//    Serial.print(" B: ");
-//    Serial.println(b);
     currColor = CRGB(r, g, b);
     maxBrightness = Wire.read() * 2.55; // the max brightness out of alexa is 100
-    
-//    Serial.print("Brightness: ");
-//    Serial.println(bright);
   } else {
     currColor = CRGB::Black;
   }
@@ -114,15 +98,11 @@ void updateStrip() {
   stripChanged = false;
 }
 
-void changeColorSolid(CRGB color) {
-  fill_solid(led, NUM_LEDS, color);
-}
-
 // ------------- Fade Functions -------------
 void fadeColor() {
   EVERY_N_MILLISECONDS(50) {
-    FastLED.setBrightness(quadwave8(fadeCount));
-    fadeCount++;
+    FastLED.setBrightness(triwave8(fadeCount) * maxBrightness / 255); // Scale the brightness to the max
+    fadeCount += 2;
   }
 }
 
@@ -139,28 +119,25 @@ void fadeOff() {
 // ------------- Pulse Functions -------------
 void pulseColor() {
   EVERY_N_MILLISECONDS(50) {
-    for (int i = NUM_LEDS - 1; i > 0; i--) {
+    for (int i = NUM_LEDS - 1; i > 0; i--) { // Has to go back to front, otherwise chain reaction will leave whole strip as the color
       led[i] = led[i - 1];
     }
     pulseCount++;
-    checkPulse(2);
+    sendPulse(2);
   }
 }
 
-void checkPulse(int numPulses) {
-  if (pulseCount == NUM_LEDS / numPulses) {
+void sendPulse(int numPulses) {
+  if (pulseCount % (NUM_LEDS / numPulses) == 0) {
     led[0] = currColor;
-    pulseCount = 1;
   } else {
-    led[0] = CRGB::Black;
+    led[0].fadeToBlackBy(32);
   }
 }
 
 void startPulse() {
-  changeColorSolid(CRGB::Black);
   pulseCount = 1;
   led[0] = currColor;
-  FastLED.show();
 }
 
 void pulseOn() {
