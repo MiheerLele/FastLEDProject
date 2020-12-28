@@ -15,9 +15,7 @@ bool stripChanged = false;
 
 // Fade Variables
 uint8_t maxBrightness;
-//uint8_t currBrightness;
 bool isFade = false;
-//bool isBlack = false;
 uint8_t fadeCount = 1;
 
 // Pulse Variables
@@ -123,11 +121,10 @@ void changeColorSolid(CRGB color) {
 // ------------- Fade Functions -------------
 void fadeColor() {
   EVERY_N_MILLISECONDS(50) {
-    FastLED.setBrightness(FastLED.quadwave8(fadeCount));
+    FastLED.setBrightness(quadwave8(fadeCount));
     fadeCount++;
   }
 }
-
 
 void fadeOn() {
   pulseOff();
