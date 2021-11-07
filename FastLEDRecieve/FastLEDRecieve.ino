@@ -5,6 +5,7 @@
 #define DEVICE_NUM 4
 #define NUM_LEDS 50
 #define LED_PIN 2
+#define MIC_PIN A2
 #define LED_TYPE WS2811
 #define ORDER BRG
 
@@ -26,17 +27,20 @@ uint8_t pulseCount = 1;
 bool isGamer = false;
 uint32_t rainbowCount = 1;
 
+// Mic Variables
+bool mic = false;
 
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
-  Wire.begin(DEVICE_NUM); // join i2c bus with address DEVICE_NUM
+  delay(7000); // Let 33 iot connect to internet
 
 //  pinMode(SDA, INPUT); // Disable built in pull up resistor
 //  pinMode(SCL, INPUT);
-  
+  Wire.begin(DEVICE_NUM); // join i2c bus with address DEVICE_NUM
   Wire.onReceive(receiveEvent); // register event
-  delay(2000);
+  
+  pinMode(MIC_PIN, INPUT);
   FastLED.addLeds<LED_TYPE, LED_PIN, ORDER>(led, NUM_LEDS).setCorrection(TypicalLEDStrip);
   FastLED.setMaxPowerInVoltsAndMilliamps(12, 2750); // Limit power draw to 36 W, my power supply is rated for 60
   Serial.println("Setup Complete");
@@ -44,9 +48,12 @@ void setup() {
 
 void loop() {
   if (stripChanged) { updateStrip(); }
-  if (isFade) { fadeColor(); }
+  if (isFade) { fadeColor(2); }
   if (isPulse) { pulseColor(); }
-  if (isGamer) { swirlRainbow(); }
+  if (isGamer) { swirlRainbow(2); }
+  if (mic) { soundPulse(); }
+  //Serial.println(analogRead(MIC_PIN));
+  //delay(50);
   FastLED.show();
 }
 
@@ -70,6 +77,11 @@ void receiveEvent(int howMany) {
         if (isGamer) { gamerOn(); }
         else { gamerOff(); }
         break; // Gamer Lights Change
+      case 4:
+        mic = Wire.read();
+        if (mic) { micOn(); }
+        else { micOff(); }
+        break;
     }
 }
 
@@ -99,16 +111,17 @@ void updateStrip() {
 }
 
 // ------------- Fade Functions -------------
-void fadeColor() {
+void fadeColor(uint8_t fadeSpeed) {
   EVERY_N_MILLISECONDS(50) {
     FastLED.setBrightness(triwave8(fadeCount) * maxBrightness / 255); // Scale the brightness to the max
-    fadeCount += 2;
+    fadeCount += fadeSpeed;
   }
 }
 
 void fadeOn() {
   pulseOff();
   gamerOff();
+  micOff();
 }
 
 void fadeOff() {
@@ -143,6 +156,7 @@ void startPulse() {
 void pulseOn() {
   fadeOff();
   gamerOff();
+  micOff();
   startPulse();
 }
 
@@ -152,46 +166,43 @@ void pulseOff() {
 }
 
 // ------------- Gamer Functions -------------
-void swirlRainbow() {
-  CRGB c;
+void swirlRainbow(uint8_t animSpeed) {
   EVERY_N_MILLISECONDS(50) {
-    for(int i=0; i< NUM_LEDS; i++) {
-      c = getColor(((i * 256 / NUM_LEDS) + rainbowCount) & 255);
-      led[i] = c;
-    }
-    rainbowCount += 2; // Higher the faster 
+    // IMPORTANT: As of FastLED 3.003.003, fill rainbow has a random red pixel around hue = 60.
+    // This is from a compiler optimization issue.
+    // The workaround is to change the lines setting hsv.sat from 240 to 255 in colorutils.ccp
+    fill_rainbow(led, NUM_LEDS, rainbowCount % 255, 255 / NUM_LEDS);
+    rainbowCount += animSpeed;
   }
-}
-
-// From: https://www.tweaking4all.com/hardware/arduino/adruino-led-strip-effects/
-CRGB getColor(byte pos) {
-  CRGB c;
- 
-  if(pos < 85) {
-   c[0]=pos * 3;
-   c[1]=255 - pos * 3;
-   c[2]=0;
-  } else if(pos < 170) {
-   pos -= 85;
-   c[0]=255 - pos * 3;
-   c[1]=0;
-   c[2]=pos * 3;
-  } else {
-   pos -= 170;
-   c[0]=0;
-   c[1]=pos * 3;
-   c[2]=255 - pos * 3;
-  }
-
-  return c;
 }
 
 void gamerOn() {
   fadeOff();
   pulseOff();
+  micOff();
 }
 
 void gamerOff() {
   isGamer = false;
+  stripChanged = true;
+}
+
+// ------------- Sound Functions -------------
+void soundPulse() {
+  EVERY_N_MILLISECONDS(50) {
+    int vol = analogRead(MIC_PIN);
+    fill_solid(led, NUM_LEDS, CHSV(triwave8(rainbowCount), 255, 36.8*log(vol)));
+    rainbowCount++;
+  }
+}
+
+void micOn() {
+  fadeOff();
+  pulseOff();
+  gamerOff();
+}
+
+void micOff() {
+  mic = false;
   stripChanged = true;
 }
