@@ -9,23 +9,26 @@ const char THING_ID[] = "c4a1eb54-35da-4c06-9d9e-37079b37f914";
 const char SSID[]     = SECRET_SSID;    // Network SSID (name)
 const char PASS[]     = SECRET_PASS;    // Network password (use for WPA, or use as key for WEP)
 
-void onLightColorChange();
 void onFadeChange();
-void onGamerLightsChange();
 void onPulseChange();
+void onLightColorChange();
+void onGamerLightsChange();
+void onMicChange();
 
-CloudColoredLight lightColor;
 CloudSwitch fade;
-CloudSwitch gamerLights;
 CloudSwitch pulse;
+CloudColoredLight lightColor;
+CloudSwitch gamerLights;
+CloudSwitch mic;
 
 void initProperties(){
 
   ArduinoCloud.setThingId(THING_ID);
-  ArduinoCloud.addProperty(lightColor, READWRITE, ON_CHANGE, onLightColorChange);
   ArduinoCloud.addProperty(fade, READWRITE, ON_CHANGE, onFadeChange);
-  ArduinoCloud.addProperty(gamerLights, READWRITE, ON_CHANGE, onGamerLightsChange);
   ArduinoCloud.addProperty(pulse, READWRITE, ON_CHANGE, onPulseChange);
+  ArduinoCloud.addProperty(lightColor, READWRITE, ON_CHANGE, onLightColorChange);
+  ArduinoCloud.addProperty(gamerLights, READWRITE, ON_CHANGE, onGamerLightsChange);
+  ArduinoCloud.addProperty(mic, READWRITE, ON_CHANGE, onMicChange);
 
 }
 

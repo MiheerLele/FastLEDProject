@@ -20,21 +20,23 @@
 #include "thingProperties.h"
 #include <Wire.h>
 #define DEVICE_NUM 4 // Transmission device id, i have defined the regular nano as device #4
+bool wireInit = false;
 
 void setup() {
   // Initialize serial and wait for port to open:
+  
   Serial.begin(9600);
-
-  Wire.begin(); // join i2c bus (address optional for master)
+  for(unsigned long const serialBeginTime = millis(); !Serial && (millis() - serialBeginTime > 5000); ) { }
   // This delay gives the chance to wait for a Serial Monitor without blocking if none is found
-  delay(2000); 
 
   // Defined in thingProperties.h
   initProperties();
 
   // Connect to Arduino IoT Cloud
   ArduinoCloud.begin(ArduinoIoTPreferredConnection);
-  
+  ArduinoCloud.addCallback(ArduinoIoTCloudEvent::CONNECT, onConnect); 
+  ArduinoCloud.addCallback(ArduinoIoTCloudEvent::DISCONNECT, onDisconnect);
+
   /*
      The following function allows you to obtain more information
      related to the state of network and IoT Cloud connection and errors
@@ -44,6 +46,9 @@ void setup() {
  */
   setDebugMessageLevel(2);
   ArduinoCloud.printDebugInfo();
+  
+  //Wire.begin(); // join i2c bus (address optional for master)
+
 }
 
 void loop() {
@@ -52,69 +57,81 @@ void loop() {
 
 
 void onLightColorChange() { // Callback from event recieved by alexa on light strip status changed
-  Serial.println("Color Change Recieved from Alexa");
-  Wire.beginTransmission(DEVICE_NUM);
-  Wire.write((byte)0x00); // Write event byte
-//  Serial.print("Light ON?: ");
-//  Serial.println(lightColor.getSwitch());
-  Wire.write((byte)lightColor.getSwitch());
-  if (lightColor.getSwitch()) { // If the light strip is on
-    byte r, g, b;
-    lightColor.getValue().getRGB(r, g, b); // Get the rgb vals
-//    Serial.print("R: ");
-//    Serial.print(r);
-//    Serial.print(" G: ");
-//    Serial.print(g);
-//    Serial.print(" B: ");
-//    Serial.println(b);
-    Wire.write(r);
-    Wire.write(g);
-    Wire.write(b);
-//    Serial.print("Brightness: ");
-//    Serial.println(lightColor.getBrightness());
-    Wire.write((byte)lightColor.getBrightness());
+  if (wireInit) {
+    Serial.println("Color Change Recieved from Alexa");
+    Wire.beginTransmission(DEVICE_NUM);
+    Wire.write((byte)0x00); // Write event byte
+    Wire.write((byte)lightColor.getSwitch());
+    if (lightColor.getSwitch()) { // If the light strip is on
+      byte r, g, b;
+      lightColor.getValue().getRGB(r, g, b); // Get the rgb vals
+      Wire.write(r);
+      Wire.write(g);
+      Wire.write(b);
+      Wire.write((byte)lightColor.getBrightness());
+    }
+    int _error = Wire.endTransmission();
+    if (_error != 0) {
+      Serial.print("Error: ");
+      Serial.println(_error);
+    }
+    delay(50);
   }
-  int _error = Wire.endTransmission();
-  if (_error != 0) {
-    Serial.print("Error: ");
-    Serial.println(_error);
-  }
-
-  delay(50);
 }
 
 
 void onFadeChange() { // Represented as a "Smart Switch", Boolean
-//  delay(500);
-  Serial.println("Fade Change Recieved from Alexa");
-  Wire.beginTransmission(DEVICE_NUM);
-  Wire.write(1); // Write event byte
-//  Serial.print("Fade On?:");
-//  Serial.println(fade);
-  Wire.write(fade);
-  Wire.endTransmission();
-  delay(50);
+  if (wireInit) {
+    Serial.println("Fade Change Recieved from Alexa");
+    Wire.beginTransmission(DEVICE_NUM);
+    Wire.write(1); // Write event byte
+    Wire.write(fade);
+    Wire.endTransmission();
+    delay(50);
+  }
 }
 
 void onPulseChange() { // Represented as a "Smart Switch", Boolean
-//  delay(500);
-  Serial.println("Pulse Change Recieved from Alexa");
-  Wire.beginTransmission(DEVICE_NUM);
-  Wire.write(2); // Write event byte
-//  Serial.print("Pulse On?:");
-//  Serial.println(pulse);
-  Wire.write(pulse);
-  Wire.endTransmission();
-  delay(50);
+  if (wireInit) {
+    Serial.println("Pulse Change Recieved from Alexa");
+    Wire.beginTransmission(DEVICE_NUM);
+    Wire.write(2); // Write event byte
+    Wire.write(pulse);
+    Wire.endTransmission();
+    delay(50);
+  }
 }
 
 
 
 void onGamerLightsChange() {
-  Serial.println("Gamer Lights Change Recieved from Alexa");
-  Wire.beginTransmission(DEVICE_NUM);
-  Wire.write(3);
-  Wire.write(gamerLights);
-  Wire.endTransmission();
-  delay(50);
+  if (wireInit) {
+    Serial.println("Gamer Lights Change Recieved from Alexa");
+    Wire.beginTransmission(DEVICE_NUM);
+    Wire.write(3);
+    Wire.write(gamerLights);
+    Wire.endTransmission();
+    delay(50);
+  }
+}
+
+void onMicChange() {
+  if (wireInit) {
+    Serial.println("Mic Change Recieved from Alexa");
+    Wire.beginTransmission(DEVICE_NUM);
+    Wire.write(4);
+    Wire.write(mic);
+    Wire.endTransmission();
+    delay(50);
+  }
+}
+
+void onConnect(){
+  Wire.begin();
+  wireInit = true;
+  Serial.println("Board successfully connected to Arduino IoT Cloud");
+}
+
+void onDisconnect() {
+  wireInit = false;
 }
